@@ -7,8 +7,12 @@ class AndroidConfig {
   /// in Azure portal.
   final String redirectUri;
 
+  /// Tenant ID of the application.
+  final String? tenantId;
+
   AndroidConfig({
     required this.configFilePath,
     required this.redirectUri,
+    this.tenantId,
   });
 }

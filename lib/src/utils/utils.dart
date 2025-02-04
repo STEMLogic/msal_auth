@@ -27,6 +27,11 @@ final class Utils {
           'redirect_uri': androidConfig.redirectUri,
         });
 
+      if (androidConfig.tenantId != null) {
+        config['authorities'][0]['audience']['tenant_id'] =
+            androidConfig.tenantId;
+      }
+
       arguments.addAll({'config': config});
     } else if (Platform.isIOS || Platform.isMacOS) {
       assert(appleConfig != null, 'Apple config can not be null');
