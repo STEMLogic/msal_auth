@@ -1,5 +1,6 @@
 package com.example.msal_auth
 
+import android.util.Patterns
 import com.google.gson.Gson
 import com.microsoft.identity.client.AcquireTokenParameters
 import com.microsoft.identity.client.AcquireTokenSilentParameters
@@ -17,6 +18,7 @@ import java.io.File
  */
 class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHandler {
     private lateinit var channel: MethodChannel
+    private lateinit var authority: String
 
     /**
      * Initializes the method channel & sets the handler.
@@ -42,6 +44,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                 val configFile = File(msal.context.cacheDir, "msal_config.json").apply {
                     writeText(Gson().toJson(config))
                 }
+                authority = call.argument<String>("authority")!!
                 if (call.method == "createSingleAccountPca") {
                     createSingleAccountPca(configFile, result)
                 } else {
@@ -214,10 +217,15 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             }
         } else if (msal.iMultipleAccountPca != null) {
             msal.iMultipleAccountPca!!.getAccount(identifier!!)?.let { account ->
+                val authority = if (Patterns.WEB_URL.matcher(account.authority).matches()) {
+                    account.authority
+                } else {
+                    authority
+                }
                 val builder = AcquireTokenSilentParameters.Builder()
                 builder.withScopes(scopes.toList())
                     .forAccount(account)
-                    .fromAuthority(account.authority)
+                    .fromAuthority(authority)
                     .withCallback(msal.silentAuthenticationCallback(result))
                 val acquireTokenParameters = builder.build()
                 msal.iPublicClientApplication.acquireTokenSilentAsync(acquireTokenParameters)

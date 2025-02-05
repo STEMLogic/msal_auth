@@ -32,7 +32,13 @@ final class Utils {
             androidConfig.tenantId;
       }
 
-      arguments.addAll({'config': config});
+      arguments.addAll(
+        {
+          'config': config,
+          'authority':
+              'https://login.microsoftonline.com/${androidConfig.tenantId}'
+        },
+      );
     } else if (Platform.isIOS || Platform.isMacOS) {
       assert(appleConfig != null, 'Apple config can not be null');
       arguments.addAll({
