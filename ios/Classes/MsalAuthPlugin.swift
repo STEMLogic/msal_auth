@@ -186,7 +186,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
         guard let viewController = UIViewController.keyViewController else {
             result(
                 FlutterError(
-                    code: "acquireToken",
+                    code: "KEYVIEWCONTROLLER_NULL",
                     message: "keyViewController is nil",
                     details: "invoked from background"))
             return

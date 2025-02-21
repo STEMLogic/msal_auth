@@ -52,6 +52,8 @@ extension PlatformExceptionUtils on PlatformException {
         return MsalServerException(message: message!);
       case 'INSUFFICIENT_DEVICE_STRENGTH':
         return MsalInsufficientDeviceStrengthException(message: message!);
+      case 'KEYVIEWCONTROLLER_NULL':
+        return MsalUserCancelException(message: message!);
     }
     return MsalException(message: message ?? '');
   }
