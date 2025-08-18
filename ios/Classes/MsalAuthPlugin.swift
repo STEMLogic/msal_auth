@@ -70,9 +70,12 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
 
             let loginHint = dict["loginHint"] as? String
             let authority = dict["authority"] as? String
+            
+            let customWebViewConfig = dict["customWebViewConfig"] as? [String: Any]
 
             acquireToken(
                 scopes: scopes, promptType: promptType, loginHint: loginHint, authority: authority,
+                customWebViewConfig: customWebViewConfig,
                 result: result)
         case "acquireTokenSilent":
             guard let dict = call.arguments as? NSDictionary,
@@ -194,6 +197,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
     ///   - result: Result of the method call.
     private func acquireToken(
         scopes: [String], promptType: MSALPromptType, loginHint: String?, authority: String?,
+        customWebViewConfig: [String: Any]?,
         result: @escaping FlutterResult
     ) {
         guard let pca = MsalAuth.publicClientApplication else {
@@ -217,6 +221,14 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
             switch MsalAuth.broker {
             case "webView":
                 webViewParameters.webviewType = .wkWebView
+                
+                if let customWebViewConfig {
+                    let customWebviewController = CustomWebviewController(config: customWebViewConfig)
+                    customWebviewController.modalPresentationStyle = .fullScreen
+                    viewController.present(customWebviewController, animated: true, completion: nil)
+                    
+                    webViewParameters.customWebview = customWebviewController.getWebView()
+                }
             case "safariBrowser":
                 webViewParameters.webviewType = .safariViewController
             default:

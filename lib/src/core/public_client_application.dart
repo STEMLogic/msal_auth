@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 
 import '../../msal_auth.dart';
@@ -31,6 +33,10 @@ class PublicClientApplication {
     /// Required for "B2C" scenarios where different policies require
     /// different authorities.
     String? authority,
+
+    /// Custom WebView configuration for iOS/MacOS platforms.
+    /// Only applicable when broker is webView.
+    CustomWebViewConfig? customWebViewConfig,
   }) async {
     assert(scopes.isNotEmpty, 'Scopes can not be empty');
     final arguments = <String, dynamic>{
@@ -39,6 +45,8 @@ class PublicClientApplication {
       'loginHint': loginHint,
       'authority': authority,
       'broker': Broker.msAuthenticator.name,
+      if (Platform.isIOS || Platform.isMacOS)
+        'customWebViewConfig': customWebViewConfig?.toJson(),
     };
     try {
       final result =
