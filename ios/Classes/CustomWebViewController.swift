@@ -21,13 +21,32 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
     func getWebView() -> WKWebView {
         return webView
     }
+    
+    // Status bar configuration
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .darkContent
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Force light theme in view
+        view.backgroundColor = .white
 
         // Adding navigation bar
         let navigationBar = UINavigationBar()
         navigationBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Configure navigation bar appearance for light theme
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor.white
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.black]
+        appearance.shadowColor = UIColor.white
+        
+        navigationBar.standardAppearance = appearance
+        navigationBar.scrollEdgeAppearance = appearance
+        
         view.addSubview(navigationBar)
 
         // Adding title and cancel button in navigation bar
