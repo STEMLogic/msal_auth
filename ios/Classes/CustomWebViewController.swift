@@ -9,6 +9,10 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
     private var webView: WKWebView!
     private var config: [String: Any]
 
+    // Store references to navigation buttons
+    private var backButton: UIBarButtonItem?
+    private var forwardButton: UIBarButtonItem?
+
     init(config: [String: Any]) {
         self.config = config
         super.init(nibName: nil, bundle: nil)
@@ -21,7 +25,7 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
     func getWebView() -> WKWebView {
         return webView
     }
-    
+
     // Status bar configuration
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .darkContent
@@ -29,24 +33,24 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         // Force light theme in view
         view.backgroundColor = .white
 
         // Adding navigation bar
         let navigationBar = UINavigationBar()
         navigationBar.translatesAutoresizingMaskIntoConstraints = false
-        
+
         // Configure navigation bar appearance for light theme
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor.white
         appearance.titleTextAttributes = [.foregroundColor: UIColor.black]
         appearance.shadowColor = UIColor.white
-        
+
         navigationBar.standardAppearance = appearance
         navigationBar.scrollEdgeAppearance = appearance
-        
+
         view.addSubview(navigationBar)
 
         // Adding title and cancel button in navigation bar
@@ -64,19 +68,23 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
         let showNavigationControls =
             config["showNavigationControls"] as? Bool ?? false
         if showNavigationControls {
-            let backButton = UIBarButtonItem(
+            backButton = UIBarButtonItem(
                 image: UIImage(systemName: "chevron.left"),
                 style: .plain,
                 target: self,
                 action: #selector(goBack)
             )
-            let forwardButton = UIBarButtonItem(
+            forwardButton = UIBarButtonItem(
                 image: UIImage(systemName: "chevron.right"),
                 style: .plain,
                 target: self,
                 action: #selector(goForward)
             )
-            navigationItem.rightBarButtonItems = [forwardButton, backButton]
+
+            backButton?.isEnabled = false
+            forwardButton?.isEnabled = false
+
+            navigationItem.rightBarButtonItems = [forwardButton!, backButton!]
         }
 
         navigationBar.setItems([navigationItem], animated: false)
@@ -115,18 +123,33 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
         ])
 
         // Listeners for webview activity
-        setupObservers()
+        addObservers()
     }
 
     deinit {
-        // Remove observer to prevent memory leaks
-        NotificationCenter.default.removeObserver(self)
+        // Remove observers to prevent memory leaks
+        removeObservers()
         // Cancel MSAL session
         MSALPublicClientApplication.cancelCurrentWebAuthSession()
     }
 
-    /// Listeners setup to close the webview on specific actions received by MSAL.
-    private func setupObservers() {
+    /// Listeners setup to manage webview on specific actions received by MSAL WebView.
+    private func addObservers() {
+        // Set up observers for webview navigation state
+        webView.addObserver(
+            self,
+            forKeyPath: "canGoBack",
+            options: .new,
+            context: nil
+        )
+        webView.addObserver(
+            self,
+            forKeyPath: "canGoForward",
+            options: .new,
+            context: nil
+        )
+
+        // Observers for MSAL actions
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleWebAuthDidFail),
@@ -140,6 +163,28 @@ class CustomWebviewController: UIViewController, WKUIDelegate,
             name: NSNotification.Name("MSALWebAuthDidCompleteNotification"),
             object: nil
         )
+    }
+
+    /// Remove all added observers on dispose.
+    private func removeObservers() {
+        webView.removeObserver(self, forKeyPath: "canGoBack")
+        webView.removeObserver(self, forKeyPath: "canGoForward")
+
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    /// Handle changes in webview navigation state
+    override func observeValue(
+        forKeyPath keyPath: String?,
+        of object: Any?,
+        change: [NSKeyValueChangeKey: Any]?,
+        context: UnsafeMutableRawPointer?
+    ) {
+        if keyPath == "canGoBack" {
+            backButton?.isEnabled = webView.canGoBack
+        } else if keyPath == "canGoForward" {
+            forwardButton?.isEnabled = webView.canGoForward
+        }
     }
 
     // MARK: - Webview functions
