@@ -1,3 +1,7 @@
+## 3.3.0
+- Created `AppTheme` style in the `example` app for MSAL WebView in Android. [#issue/119](https://github.com/nayanAubie/msal_auth/issues/119)
+- Added support for customised webview in iOS and macOS. [#issue/90](https://github.com/nayanAubie/msal_auth/issues/90)
+
 ## 3.2.7
 - Fixed issue of `authorityType` value assignment in iOS/MacOS. [#issue/118](https://github.com/nayanAubie/msal_auth/issues/118)
 
