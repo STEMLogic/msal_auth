@@ -63,10 +63,11 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
 
             let loginHint = dict["loginHint"] as? String
             let authority = dict["authority"] as? String
+            let customWebViewConfig = dict["customWebViewConfig"] as? [String: Any]
 
             acquireToken(
                 scopes: scopes, promptType: promptType, loginHint: loginHint, authority: authority,
-                result: result)
+                customWebViewConfig: customWebViewConfig, result: result)
         case "acquireTokenSilent":
             guard let dict = call.arguments as? NSDictionary,
                 let scopes = dict["scopes"] as? [String]
@@ -175,10 +176,11 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
     ///   - promptType: Prompt type.
     ///   - loginHint: Login hint.
     ///   - authority: Authority URL to override default authority.
+    ///   - customWebViewConfig: Custom webview configuration.
     ///   - result: Result of the method call.
     private func acquireToken(
         scopes: [String], promptType: MSALPromptType, loginHint: String?, authority: String?,
-        result: @escaping FlutterResult
+        customWebViewConfig: [String: Any]?, result: @escaping FlutterResult
     ) {
         guard let pca = MsalAuth.publicClientApplication else {
             setPcaInitError(methodName: "acquireToken", result: result)
@@ -197,6 +199,17 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
 
         let webViewParameters = MSALWebviewParameters(authPresentationViewController: viewController)
         webViewParameters.prefersEphemeralWebBrowserSession = true
+
+        // Use custom webview if configuration is provided
+        if let customWebViewConfig {
+            let customWebviewController = CustomWebviewController()
+            customWebviewController.title = customWebViewConfig["title"] as? String
+            viewController.presentAsModalWindow(customWebviewController)
+            
+            // Use the custom webview for MSAL
+            webViewParameters.webviewType = .wkWebView
+            webViewParameters.customWebview = customWebviewController.getWebView()
+        }
 
         let tokenParams = MSALInteractiveTokenParameters(
             scopes: scopes, webviewParameters: webViewParameters)
