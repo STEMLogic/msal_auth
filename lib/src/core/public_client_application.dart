@@ -35,7 +35,7 @@ class PublicClientApplication {
     String? authority,
 
     /// Custom WebView configuration for iOS/MacOS platforms.
-    /// Only applicable when broker is webView.
+    /// For iOS, it is only used when broker is webView.
     CustomWebViewConfig? customWebViewConfig,
   }) async {
     assert(scopes.isNotEmpty, 'Scopes can not be empty');
