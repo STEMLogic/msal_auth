@@ -56,6 +56,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                 val scopes: List<String> = call.argument<List<String>>("scopes")!!.toList()
                 val promptArg: String? = call.argument("prompt")
                 val loginHint: String? = call.argument("loginHint")
+                val authority: String? = call.argument("authority")
 
                 val prompt: Prompt = when (promptArg) {
                     "selectAccount" -> Prompt.SELECT_ACCOUNT
@@ -64,13 +65,14 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                     "create" -> Prompt.CREATE
                     else -> Prompt.WHEN_REQUIRED
                 }
-                Thread { acquireToken(scopes, prompt, loginHint, result) }.start()
+                Thread { acquireToken(scopes, prompt, loginHint, authority, result) }.start()
             }
 
             "acquireTokenSilent" -> {
                 val scopes: List<String> = call.argument<List<String>>("scopes")!!.toList()
                 val identifier: String? = call.argument("identifier")
-                Thread { acquireTokenSilent(scopes, identifier, result) }.start()
+                val authority: String? = call.argument("authority")
+                Thread { acquireTokenSilent(scopes, identifier, authority, result) }.start()
             }
 
             "currentAccount" -> getCurrentAccount(result)
@@ -137,12 +139,14 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
      * @param scopes the list of scopes.
      * @param prompt the prompt to use.
      * @param loginHint username, email or unique identifier.
+     * @param authority authority URL to override default authority.
      * @param result the result of the method call.
      */
     private fun acquireToken(
         scopes: List<String>,
         prompt: Prompt,
         loginHint: String?,
+        authority: String?,
         result: MethodChannel.Result
     ) {
         if (!msal.isPcaInitialized()) {
@@ -150,36 +154,20 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             return
         }
 
-        if (msal.iSingleAccountPca != null) {
-            msal.iSingleAccountPca!!.currentAccount?.let { accountResult ->
-                if (accountResult.currentAccount != null) {
-                    acquireTokenSilent(scopes, null, result)
-                } else {
-                    msal.activity.let {
-                        val builder = AcquireTokenParameters.Builder()
-                        builder.startAuthorizationFromActivity(it)
-                            .withScopes(scopes.toList())
-                            .withPrompt(prompt)
-                            .withLoginHint(loginHint)
-                            .withCallback(msal.authenticationCallback(result))
-
-                        val acquireTokenParameters = builder.build()
-                        msal.iPublicClientApplication.acquireToken(acquireTokenParameters)
-                    }
+        msal.activity.let {
+            val builder = AcquireTokenParameters.Builder()
+            builder.startAuthorizationFromActivity(it)
+                .withScopes(scopes.toList())
+                .withPrompt(prompt)
+                .withLoginHint(loginHint)
+                .apply {
+                    // If authority is provided, set it to the builder
+                    if (authority != null) fromAuthority(authority)
                 }
-            }
-        } else if (msal.iMultipleAccountPca != null) {
-            msal.activity.let {
-                val builder = AcquireTokenParameters.Builder()
-                builder.startAuthorizationFromActivity(it)
-                    .withScopes(scopes.toList())
-                    .withPrompt(prompt)
-                    .withLoginHint(loginHint)
-                    .withCallback(msal.authenticationCallback(result))
+                .withCallback(msal.authenticationCallback(result))
 
-                val acquireTokenParameters = builder.build()
-                msal.iPublicClientApplication.acquireToken(acquireTokenParameters)
-            }
+            val acquireTokenParameters = builder.build()
+            msal.iPublicClientApplication.acquireToken(acquireTokenParameters)
         }
     }
 
@@ -188,11 +176,13 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
      *
      * @param scopes the list of scopes.
      * @param identifier Account identifier.
+     * @param authority authority URL to override cached account's authority.
      * @param result the result of the method call.
      */
     private fun acquireTokenSilent(
         scopes: List<String>,
         identifier: String? = null,
+        authority: String?,
         result: MethodChannel.Result
     ) {
         if (!msal.isPcaInitialized()) {
@@ -207,7 +197,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                     val builder = AcquireTokenSilentParameters.Builder()
                     builder.withScopes(scopes.toList())
                         .forAccount(currentAccount)
-                        .fromAuthority(currentAccount.authority)
+                        .fromAuthority(authority ?: currentAccount.authority)
                         .withCallback(msal.silentAuthenticationCallback(result))
                     val acquireTokenParameters = builder.build()
                     msal.iPublicClientApplication.acquireTokenSilentAsync(acquireTokenParameters)

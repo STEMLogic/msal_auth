@@ -23,12 +23,18 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
                     }
                 }(),
                 let clientId = dict["clientId"] as? String,
-                let authorityType = dict["authorityType"] as? String
+                    let authorityType: AuthorityType = {
+                        switch dict["authorityType"] as? String {
+                        case "b2c": return .b2c
+                        default: return .aad
+                        }
+                    }()
             else {
                 setInternalError(methodName: call.method, result: result)
                 return
             }
 
+            MsalAuth.authorityType = authorityType
             let authority = dict["authority"] as? String
 
             createPublicClientApplication(
@@ -56,10 +62,12 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
             }
 
             let loginHint = dict["loginHint"] as? String
+            let authority = dict["authority"] as? String
+            let customWebViewConfig = dict["customWebViewConfig"] as? [String: Any]
 
             acquireToken(
-                scopes: scopes, promptType: promptType, loginHint: loginHint,
-                result: result)
+                scopes: scopes, promptType: promptType, loginHint: loginHint, authority: authority,
+                customWebViewConfig: customWebViewConfig, result: result)
         case "acquireTokenSilent":
             guard let dict = call.arguments as? NSDictionary,
                 let scopes = dict["scopes"] as? [String]
@@ -69,9 +77,10 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
             }
 
             let identifier = dict["identifier"] as? String
+            let authority = dict["authority"] as? String
 
             acquireTokenSilent(
-                scopes: scopes, identifier: identifier, result: result)
+                scopes: scopes, identifier: identifier, authority: authority, result: result)
 
         case "currentAccount": getCurrentAccount(result: result)
 
@@ -108,7 +117,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
     private func createPublicClientApplication(
         pcaType: PublicClientApplicationType,
         clientId: String, authority: String?,
-        authorityType: String,
+        authorityType: AuthorityType,
         result: @escaping FlutterResult
     ) {
         var pcaConfig: MSALPublicClientApplicationConfig!
@@ -117,15 +126,15 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
             guard let authorityUrl = URL(string: authority!) else {
                 result(
                     FlutterError(
-                        code: "INTERNAL_ERROR",
+                        code: "INVALID_AUTHORITY",
                         message: "invalid authority URL has been provided",
-                        details: "invalid_authority"))
+                        details: nil))
                 return
             }
 
             do {
                 switch authorityType {
-                case "b2c":
+                case .b2c:
                     let b2cAuthority = try MSALB2CAuthority(url: authorityUrl)
                     pcaConfig = MSALPublicClientApplicationConfig(
                         clientId: clientId, redirectUri: nil,
@@ -166,38 +175,56 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
     ///   - scopes: Scopes to be requested.
     ///   - promptType: Prompt type.
     ///   - loginHint: Login hint.
+    ///   - authority: Authority URL to override default authority.
+    ///   - customWebViewConfig: Custom webview configuration.
     ///   - result: Result of the method call.
     private func acquireToken(
-        scopes: [String], promptType: MSALPromptType, loginHint: String?,
-        result: @escaping FlutterResult
+        scopes: [String], promptType: MSALPromptType, loginHint: String?, authority: String?,
+        customWebViewConfig: [String: Any]?, result: @escaping FlutterResult
     ) {
         guard let pca = MsalAuth.publicClientApplication else {
             setPcaInitError(methodName: "acquireToken", result: result)
             return
         }
+        
+        guard let mainWindow = NSApplication.shared.mainWindow,
+              let viewController = mainWindow.contentViewController else {
+            result(
+                FlutterError(
+                    code: "UI_UNAVAILABLE",
+                    message: "Cannot present authentication UI. The view controller is not available.",
+                    details: nil))
+            return
+        }
 
-        let webViewParameters = MSALWebviewParameters()
+        let webViewParameters = MSALWebviewParameters(authPresentationViewController: viewController)
         webViewParameters.prefersEphemeralWebBrowserSession = true
+
+        // Use custom webview if configuration is provided
+        if let customWebViewConfig {
+            let customWebviewController = CustomWebviewController()
+            customWebviewController.title = customWebViewConfig["title"] as? String
+            viewController.presentAsModalWindow(customWebviewController)
+            
+            // Use the custom webview for MSAL
+            webViewParameters.webviewType = .wkWebView
+            webViewParameters.customWebview = customWebviewController.getWebView()
+        }
 
         let tokenParams = MSALInteractiveTokenParameters(
             scopes: scopes, webviewParameters: webViewParameters)
 
         tokenParams.promptType = promptType
         tokenParams.loginHint = loginHint
-
-        var account: MSALAccount?
-
-        // Call current account for single account mode. multiple account mode needs to give account identifier to get particular account.
-        if MsalAuth.pcaType == PublicClientApplicationType.single {
-            if let currentAccount = getCurrentAccount() {
-                account = currentAccount
+        
+        if let authority = authority {
+            do {
+                let msalAuthority = try getMsalAuthority(authority: authority)
+                tokenParams.authority = msalAuthority
+            } catch let error as NSError {
+                setMsalError(error: error, result: result)
+                return
             }
-        }
-
-        if account != nil {
-            acquireTokenSilent(
-                scopes: scopes, identifier: account?.identifier, result: result)
-            return
         }
 
         pca.acquireToken(
@@ -220,9 +247,10 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
     /// - Parameters:
     ///   - scopes: Scopes to be requested.
     ///   - identifier: Account identifier.
+    ///   - authority: Authority URL to override cached account's authority.
     ///   - result: Result of the method call.
     private func acquireTokenSilent(
-        scopes: [String], identifier: String? = nil,
+        scopes: [String], identifier: String? = nil, authority: String?,
         result: @escaping FlutterResult
     ) {
         guard let pca = MsalAuth.publicClientApplication else {
@@ -245,6 +273,16 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
 
         let silentParams = MSALSilentTokenParameters(
             scopes: scopes, account: account)
+        
+        if let authority = authority {
+            do {
+                let msalAuthority = try getMsalAuthority(authority: authority)
+                silentParams.authority = msalAuthority
+            } catch let error as NSError {
+                setMsalError(error: error, result: result)
+                return
+            }
+        }
 
         pca.acquireTokenSilent(
             with: silentParams,
@@ -390,6 +428,18 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin {
 
 // MARK: - MsalAuthPlugin
 extension MsalAuthPlugin {
+    /// Returns the object of MSAL Authority based on the authority type.
+    /// - Parameter authority: authority URL in string.
+    /// - Returns: `MSALAuthority`.
+    fileprivate func getMsalAuthority(authority: String) throws -> MSALAuthority {
+        switch (MsalAuth.authorityType) {
+            case .b2c:
+            return try MSALB2CAuthority(url: URL(string: authority)!)
+        default:
+            return try MSALAuthority(url: URL(string: authority)!)
+        }
+    }
+    
     /// Returns auth result dictionary. used to set result to Dart.
     /// - Parameter authResult: Auth result.
     /// - Returns: Auth result dictionary.
@@ -434,10 +484,10 @@ extension MsalAuthPlugin {
     ) {
         result(
             FlutterError(
-                code: "INTERNAL_ERROR",
+                code: "INVALID_DATA",
                 message:
                     "Invalid data has been provided on method \(methodName).",
-                details: "invalid_data"))
+                details: nil))
     }
 
     /// Sets public client application initialization error to result. This is a custom exception created at Dart side.
@@ -460,9 +510,9 @@ extension MsalAuthPlugin {
     fileprivate func setNoCurrentAccountError(result: @escaping FlutterResult) {
         result(
             FlutterError(
-                code: "INTERNAL_ERROR",
+                code: "NO_CURRENT_ACCOUNT",
                 message: "There is no currently signed in account.",
-                details: "no_account"))
+                details: nil))
     }
 
     /// Common MSAL error handling function that returns error to Dart.
@@ -472,47 +522,49 @@ extension MsalAuthPlugin {
     fileprivate func setMsalError(
         error: NSError, result: @escaping FlutterResult
     ) {
-        var code: String!
-        var errorDetails: Any? = nil
+        var flutterErrorCode: String!
+        var errorMessage: Any?
+        var errorDetails = [String: Any]()
 
         if error.domain == MSALErrorDomain,
             let errorCode = MSALError(rawValue: error.code)
         {
+            errorMessage = error.userInfo[MSALErrorDescriptionKey]
+            errorDetails["correlationId"] = error.userInfo[MSALCorrelationIDKey]
+            
             switch errorCode {
             case .userCanceled:
-                code = "USER_CANCEL"
+                flutterErrorCode = "USER_CANCEL"
             case .serverDeclinedScopes:
-                code = "DECLINED_SCOPE"
-                var details = [String: Any]()
-                details["grantedScopes"] = error.userInfo[MSALGrantedScopesKey]
-                details["declinedScopes"] =
-                    error.userInfo[MSALDeclinedScopesKey]
-                errorDetails = details
+                flutterErrorCode = "DECLINED_SCOPE"
+                errorDetails["grantedScopes"] = error.userInfo[MSALGrantedScopesKey]
+                errorDetails["declinedScopes"] = error.userInfo[MSALDeclinedScopesKey]
             case .serverProtectionPoliciesRequired:
-                code = "PROTECTION_POLICY_REQUIRED"
+                flutterErrorCode = "PROTECTION_POLICY_REQUIRED"
             case .interactionRequired:
-                code = "UI_REQUIRED"
+                flutterErrorCode = "UI_REQUIRED"
+                errorDetails["oauthError"] = error.userInfo[MSALOAuthErrorKey]
+                errorDetails["oauthErrorDescription"] = error.userInfo[MSALOAuthSubErrorDescriptionKey]
             case .internal:
-                code = "INTERNAL_ERROR"
-                errorDetails = error.userInfo[MSALInternalErrorCodeKey]
+                flutterErrorCode = "INTERNAL_ERROR"
+                errorDetails["internalErrorCode"] = error.userInfo[MSALInternalErrorCodeKey]
             case .workplaceJoinRequired:
-                code = "WORKPLACE_JOIN_REQUIRED"
+                flutterErrorCode = "WORKPLACE_JOIN_REQUIRED"
             case .serverError:
-                code = "SERVER_ERROR"
+                flutterErrorCode = "SERVER_ERROR"
             case .insufficientDeviceStrength:
-                code = "INSUFFICIENT_DEVICE_STRENGTH"
+                flutterErrorCode = "INSUFFICIENT_DEVICE_STRENGTH"
             @unknown default:
-                code = "INTERNAL_ERROR"
-                errorDetails = "unknown"
+                break
             }
         } else {
-            code = "INTERNAL_ERROR"
-            errorDetails = error.domain
+            flutterErrorCode = error.domain
+            errorMessage = error.localizedDescription
         }
 
         result(
             FlutterError(
-                code: code, message: error.localizedDescription,
+                code: flutterErrorCode, message: errorMessage as? String,
                 details: errorDetails))
     }
 }
