@@ -4,20 +4,20 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'msal_auth'
-  s.version          = '0.0.1'
+  s.version          = '0.0.2'
   s.summary          = 'A new Flutter plugin for Azure AD authentication.'
   s.description      = <<-DESC
 A new Flutter plugin for Azure AD authentication.
                        DESC
-  s.homepage         = 'https://www.auberginesolutions.com'
+  s.homepage         = 'https://www.aubergine.co'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Aubergine Solutions Pvt. Ltd.' => 'flutterdev@auberginesolutions.com' }
+  s.author           = { 'Aubergine Solutions Pvt. Ltd.' => 'flutterdev@aubergine.co' }
 
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
   s.platform = :osx, '10.15'
-  s.dependency 'MSAL', '~> 1.6.1'
+  s.dependency 'MSAL', '~> 2.2.0'
 
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'

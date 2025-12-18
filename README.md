@@ -44,15 +44,21 @@ To implement `MSAL` in Flutter, you first need to set up an app in the `Azure Po
 
 ### Android Setup - Azure portal
 
-- For Android, You need to provide `package name` and release `signature hash`.
-  - To generate a signature hash in Flutter, use the below command:
-  
-    ```Bash
-    keytool -exportcert -alias androidreleasekey -keystore app/upload-keystore.jks | openssl sha1 -binary | openssl base64
-    ```
+For Android, You need to provide `package name` and `signature hash`. To generate a signature hash in Flutter, use the below command from your project's `android` folder:
 
-  - Make sure you have release `keystore` file placed inside `/app` folder.
-  - Only one signature hash is required because it maps with `AndroidManifest.xml`.
+- Debug:
+  ```Bash
+  keytool -exportcert -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android | openssl sha1 -binary | openssl base64
+  ```
+
+- Release:
+  ```Bash
+  keytool -exportcert -alias upload -keystore app/upload-keystore.jks | openssl sha1 -binary | openssl base64
+  ```
+
+  - Ensure you have `upload-keystore.jks` file placed inside `android/app` folder. Follow the Flutter's documentation [Build and release an Android app] to create a release setup.
+
+Register both signature hash in Azure's Android Platform configurations.
 
 ---
   
@@ -140,33 +146,51 @@ Follow the [Android MSAL Authority] documentation to configure it in various way
 
 ---
 
+### Add Internet and Network State permission in AndroidManifest.xml
+
+This permission declaration is required for browser-delegated authentication:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
+---
+
 ### Add BrowserTabActivity in AndroidManifest.xml
 
-- If you use `Browser` for authentication, you must specify `BrowserTabActivity` within the `<application>` tag in your **AndroidManifest.xml** file.
+If you use `Browser` or `Authenticator` app for authentication, you must specify `BrowserTabActivity` within the `<application>` tag in your **AndroidManifest.xml** file.
 
-  ```XML
-  <application>
-  ...
+```XML
+<application>
+...
 
-    <activity android:name="com.microsoft.identity.client.BrowserTabActivity">
-        <intent-filter>
-            <action android:name="android.intent.action.VIEW" />
+  <activity android:name="com.microsoft.identity.client.BrowserTabActivity">
+      <intent-filter>
+          <action android:name="android.intent.action.VIEW" />
 
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
+          <category android:name="android.intent.category.DEFAULT" />
+          <category android:name="android.intent.category.BROWSABLE" />
 
-            <data
-                android:host="com.example.msal_auth_example"
-                android:path="/<BASE64_ENCODED_PACKAGE_SIGNATURE>"
-                android:scheme="msauth" />
-        </intent-filter>
-    </activity>
+          <data
+              android:host="com.example.msal_auth_example"
+              android:path="/<BASE64_ENCODED_PACKAGE_SIGNATURE>"
+              android:scheme="msauth" />
+      </intent-filter>
+  </activity>
     
-  </application>
-  ```
+</application>
+```
 - Replace `host` with your app's package name and `path` with the `base64 signature hash` that was generated earlier.
+- To load debug and release signature hash programmatically in your project, follow the [`example README`] and [`example`] code.
 
 > To learn more about configuring JSON, follow [Android MSAL configuration].
+
+### ProGuard
+
+You don't need to include any rules for `MSAL Android` library as this is done using [`consumer-rules.pro`] file within this Flutter plugin.
+
+> For more info regarding ProGuard, follow [Android App Optimization].
 
 ## iOS Configuration
 
@@ -194,7 +218,7 @@ Follow the [Android MSAL Authority] documentation to configure it in various way
   </array>
   ```
 
-- Add `LSApplicationQueriesSchemes` to allow making call to [Microsoft Authenticator] app if installed.
+- Add `LSApplicationQueriesSchemes` to use the [Microsoft Authenticator] app as a broker for authentication. Not required when `Safari Browser` or `WebView` is used as a broker.
 
   ```plist
   <key>LSApplicationQueriesSchemes</key>
@@ -203,6 +227,8 @@ Follow the [Android MSAL Authority] documentation to configure it in various way
 	  <string>msauthv3</string>
   </array>
   ```
+
+  - If you use `Broker.msAuthenticator` after declaring the above schemes but the Authenticator app is not installed on the iPhone, the authentication will fall back to using `Safari Browser`.
 
 ---
 
@@ -304,7 +330,10 @@ final authResult = await publicClientApplication.acquireToken(
   // UI option for authentication, default is [Prompt.whenRequired]
   prompt: Prompt.login,
   // Provide 'loginHint' if you have.
-  loginHint: '<Email Id / Username / Unique Identifier>'
+  loginHint: '<Email Id / Username / Unique Identifier>',
+  // Optional: Custom authority URL for B2C or different
+  // tenant scenarios
+  authority: '<Authority URL>',
 );
 
 log('Auth result: ${authResult.toJson()}');
@@ -323,6 +352,10 @@ if (expiresOn.isBefore(DateTime.now())) {
   final authResult = await publicClientApplication.acquireTokenSilent(
     scopes: <String>[], // List of string same as "acquireToken()"
     identifier: 'Account Identifier, required for multiple account mode',
+    // Authority URL where you want to refresh tokens using
+    // a different policy than the original authentication.
+    // Required for B2C scenarios.
+    authority: '<Authority URL>',
   );
 
   log('Auth result: ${authResult.toJson()}');
@@ -359,22 +392,12 @@ You can learn more about [MSAL exceptions - Android] and [MSAL exceptions - iOS/
 
 The [`example`] app demonstrates all the features supported by this plugin with providing a practical implementation.
 
-It uses environment variables for the values such as client id, redirect URI, etc to make it easier to configure the app for different environments.
-
-To set it up, create a `.env/development.env` file in the root of your project and add your values like this:
-
-```ini
-AAD_CLIENT_ID=your-apps-client-id
-AAD_ANDROID_REDIRECT_URI=your-android-apps-redirect-uri
-AAD_APPLE_AUTHORITY=https://login.microsoftonline.com/common
-```
-
-Use B2C authority URL in `AAD_APPLE_AUTHORITY` if your app uses `b2c` flow.
-
-Follow [`example`] code for more details on implementation.
+See the [`example README`] for detailed setup instructions.
 
 
 [Azure Portal]: https://portal.azure.com/
+[Build and release an Android app]: https://docs.flutter.dev/deployment/android
+[Android App Optimization]: https://developer.android.com/topic/performance/app-optimization/enable-app-optimization
 [Microsoft default configuration file]: https://learn.microsoft.com/en-in/entra/identity-platform/msal-configuration#the-default-msal-configuration-file
 [Microsoft Authenticator App]: https://play.google.com/store/apps/details?id=com.azure.authenticator
 [Android MSAL configuration]: https://learn.microsoft.com/en-in/entra/identity-platform/msal-configuration
@@ -385,5 +408,7 @@ Follow [`example`] code for more details on implementation.
 [MSAL exceptions - Android]: https://learn.microsoft.com/en-us/entra/identity-platform/msal-android-handling-exceptions
 [MSAL exceptions - iOS/macOS]: https://learn.microsoft.com/en-us/entra/msal/objc/error-handling-ios
 [`example`]: example
+[`example README`]: example/README.md
+[`consumer-rules.pro`]: android/consumer-rules.pro
 [`AppDelegate.swift`]: example/ios/Runner/AppDelegate.swift
 [`DebugProfile.entitlements`]: example/macos/Runner/DebugProfile.entitlements
