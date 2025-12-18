@@ -1,22 +1,22 @@
 group 'com.example.msal_auth'
 version '1.0-SNAPSHOT'
 
-def msalVersion = "6.0.1"
+def msalVersion = "5.7.+"
 
 if (project.hasProperty("distMsalVersion")) {
     msalVersion = distMsalVersion
 }
 
 buildscript {
-    ext.kotlin_version = '2.1.0'
+    ext.kotlin_version = '1.7.20'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+        classpath 'com.android.tools.build:gradle:7.3.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
@@ -25,40 +25,41 @@ rootProject.allprojects {
         google()
         mavenCentral()
         maven {
-            setUrl("https://pkgs.dev.azure.com/MicrosoftDeviceSDK/DuoSDK-Public/_packaging/Duo-SDK-Feed/maven/v1")
+            url 'https://pkgs.dev.azure.com/MicrosoftDeviceSDK/DuoSDK-Public/_packaging/Duo-SDK-Feed/maven/v1'
         }
     }
 }
 
-apply plugin: "com.android.library"
-apply plugin: "kotlin-android"
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
 
 android {
-    namespace = "com.example.msal_auth"
+    if (project.android.hasProperty("namespace")) {
+        namespace 'com.example.msal_auth'
+    }
 
-    compileSdk = 35
+    compileSdk 34
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = '1.8'
     }
 
     sourceSets {
-        main.java.srcDirs += "src/main/kotlin"
-        test.java.srcDirs += "src/test/kotlin"
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
     }
 
     defaultConfig {
-        minSdk = 21
-        consumerProguardFiles("consumer-rules.pro")
+        minSdkVersion 21
     }
 }
 
 dependencies {
-    implementation("com.microsoft.identity.client:msal:${msalVersion}")
-    implementation("com.google.code.gson:gson:2.13.1")
+    implementation "com.microsoft.identity.client:msal:${msalVersion}"
+    implementation 'com.google.code.gson:gson:2.11.0'
 }

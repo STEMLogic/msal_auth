@@ -49,14 +49,10 @@ class MsalClientException extends MsalException {
   /// Detailed error code.
   final String errorCode;
 
-  const MsalClientException({
-    required this.errorCode,
-    required super.message,
-    required super.correlationId,
-  });
+  const MsalClientException({required this.errorCode, required super.message});
 
   @override
   String toString() {
-    return 'MsalClientException { errorCode: $errorCode, message: $message, correlationId: $correlationId }';
+    return 'MsalClientException { errorCode: $errorCode, message: $message }';
   }
 }

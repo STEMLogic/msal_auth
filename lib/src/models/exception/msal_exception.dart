@@ -18,13 +18,10 @@ class MsalException implements Exception {
   /// Error message returned by MSAL SDK.
   final String message;
 
-  /// Represents UUID used for the request.
-  final String? correlationId;
-
-  const MsalException({required this.message, this.correlationId});
+  const MsalException({required this.message});
 
   @override
   String toString() {
-    return 'MsalException { message: $message, correlationId: $correlationId }';
+    return 'MsalException { message: $message }';
   }
 }

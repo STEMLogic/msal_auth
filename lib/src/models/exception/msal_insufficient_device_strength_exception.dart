@@ -5,15 +5,12 @@ part of 'msal_exception.dart';
 ///
 /// Workplacejoin migrate device registration is required to proceed.
 ///
-/// Only occurs in iOS/MacOS platform.
+/// Only occurs in iOS platform.
 class MsalInsufficientDeviceStrengthException extends MsalException {
-  const MsalInsufficientDeviceStrengthException({
-    required super.message,
-    required super.correlationId,
-  });
+  const MsalInsufficientDeviceStrengthException({required super.message});
 
   @override
   String toString() {
-    return 'MsalInsufficientDeviceStrengthException { message: $message, correlationId: $correlationId }';
+    return 'MsalInsufficientDeviceStrengthException { message: $message }';
   }
 }

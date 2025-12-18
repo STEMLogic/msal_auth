@@ -11,25 +11,10 @@ part of 'msal_exception.dart';
 ///
 /// Developer should handle this and generally call the "acquireToken()" method.
 class MsalUiRequiredException extends MsalException {
-  /// Only present in Android platform.
-  final String? oauthSubErrorCode;
-
-  /// Only present in iOS/MacOS platform.
-  final String? oauthError;
-
-  /// Only present in iOS/MacOS platform.
-  final String? oauthErrorDescription;
-
-  const MsalUiRequiredException({
-    required this.oauthSubErrorCode,
-    required this.oauthError,
-    required this.oauthErrorDescription,
-    required super.message,
-    required super.correlationId,
-  });
+  const MsalUiRequiredException({required super.message});
 
   @override
   String toString() {
-    return 'MsalUiRequiredException { oauthSubErrorCode: $oauthSubErrorCode, oauthError: $oauthError, oauthErrorDescription: $oauthErrorDescription, message: $message, correlationId: $correlationId }';
+    return 'MsalUiRequiredException { message: $message }';
   }
 }
