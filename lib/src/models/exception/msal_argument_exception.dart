@@ -6,21 +6,24 @@ part of 'msal_exception.dart';
 ///
 /// Only occurs in Android platform.
 class MsalArgumentException extends MsalException {
+  /// Detailed error code.
+  final String errorCode;
+
   /// Argument name that has thrown this exception.
   final String argumentName;
 
   /// Operation name provided by SDK.
-  final String? operationName;
+  final String operationName;
 
   const MsalArgumentException({
+    required this.errorCode,
     required this.argumentName,
     required this.operationName,
     required super.message,
-    required super.correlationId,
   });
 
   @override
   String toString() {
-    return 'MsalArgumentException { argumentName: $argumentName, operationName: $operationName, message: $message, correlationId: $correlationId }';
+    return 'MsalArgumentException { errorCode: $errorCode, argumentName: $argumentName, operationName: $operationName }';
   }
 }
