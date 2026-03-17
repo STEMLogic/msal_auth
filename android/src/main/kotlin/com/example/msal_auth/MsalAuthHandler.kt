@@ -186,9 +186,20 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             msal.iSingleAccountPca!!.currentAccount?.let { accountResult ->
                 val currentAccount = accountResult.currentAccount
                 if (currentAccount != null) {
+                    val resolvedAuthority: String = when {
+                        // Per-call override (from Dart)
+                        !authority.isNullOrBlank() -> authority
+
+                        // Account authority
+                        currentAccount.authority.isNotBlank() -> currentAccount.authority
+
+                        // Fallback: PCA-level authority set during create*Pca
+                        else -> this.authority
+                    }
+
                     val builder = AcquireTokenSilentParameters.Builder()
                     builder.withScopes(scopes.toList()).forAccount(currentAccount)
-                        .fromAuthority(authority ?: currentAccount.authority)
+                        .fromAuthority(resolvedAuthority)
                         .withCallback(msal.silentAuthenticationCallback(result))
                     val acquireTokenParameters = builder.build()
                     msal.iPublicClientApplication.acquireTokenSilentAsync(acquireTokenParameters)
@@ -198,16 +209,15 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             }
         } else if (msal.iMultipleAccountPca != null) {
             msal.iMultipleAccountPca!!.getAccount(identifier!!)?.let { account ->
-                // Prefer a valid URL authority from the account; otherwise fall back
-                // to the method parameter, then to the PCA-level authority set at
-                // creation time. This avoids passing null to fromAuthority().
                 val resolvedAuthority: String = when {
-                    Patterns.WEB_URL.matcher(account.authority)
-                        .matches() && account.authority.isNotBlank() -> account.authority
-
+                    // Per-call override (from Dart)
                     !authority.isNullOrBlank() -> authority
 
-                    else -> this.authority  // class field set in create*Pca
+                    // Use account authority only if it looks like a URL
+                    Patterns.WEB_URL.matcher(account.authority).matches() -> account.authority
+
+                    // Fallback: PCA-level authority set during create*Pca
+                    else -> this.authority
                 }
 
                 val builder = AcquireTokenSilentParameters.Builder()
