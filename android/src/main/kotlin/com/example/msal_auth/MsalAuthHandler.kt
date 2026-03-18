@@ -108,9 +108,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
         }
 
         SingleAccountPublicClientApplication.createSingleAccountPublicClientApplication(
-            msal.context,
-            configFile,
-            msal.singleAccountApplicationCreatedListener(result)
+            msal.context, configFile, msal.singleAccountApplicationCreatedListener(result)
         )
     }
 
@@ -127,9 +125,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
         }
 
         MultipleAccountPublicClientApplication.createMultipleAccountPublicClientApplication(
-            msal.context,
-            configFile,
-            msal.multipleAccountApplicationCreatedListener(result)
+            msal.context, configFile, msal.multipleAccountApplicationCreatedListener(result)
         )
     }
 
@@ -147,7 +143,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
         prompt: Prompt,
         loginHint: String?,
         authority: String?,
-        result: MethodChannel.Result
+        result: MethodChannel.Result,
     ) {
         if (!msal.isPcaInitialized()) {
             setPcaInitError("acquireToken", result)
@@ -156,15 +152,11 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
 
         msal.activity.let {
             val builder = AcquireTokenParameters.Builder()
-            builder.startAuthorizationFromActivity(it)
-                .withScopes(scopes.toList())
-                .withPrompt(prompt)
-                .withLoginHint(loginHint)
-                .apply {
+            builder.startAuthorizationFromActivity(it).withScopes(scopes.toList())
+                .withPrompt(prompt).withLoginHint(loginHint).apply {
                     // If authority is provided, set it to the builder
                     if (authority != null) fromAuthority(authority)
-                }
-                .withCallback(msal.authenticationCallback(result))
+                }.withCallback(msal.authenticationCallback(result))
 
             val acquireTokenParameters = builder.build()
             msal.iPublicClientApplication.acquireToken(acquireTokenParameters)
@@ -183,7 +175,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
         scopes: List<String>,
         identifier: String? = null,
         authority: String?,
-        result: MethodChannel.Result
+        result: MethodChannel.Result,
     ) {
         if (!msal.isPcaInitialized()) {
             setPcaInitError("acquireTokenSilent", result)
@@ -194,10 +186,20 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             msal.iSingleAccountPca!!.currentAccount?.let { accountResult ->
                 val currentAccount = accountResult.currentAccount
                 if (currentAccount != null) {
+                    val resolvedAuthority: String = when {
+                        // Per-call override (from Dart)
+                        !authority.isNullOrBlank() -> authority
+
+                        // Account authority
+                        currentAccount.authority.isNotBlank() -> currentAccount.authority
+
+                        // Fallback: PCA-level authority set during create*Pca
+                        else -> this.authority
+                    }
+
                     val builder = AcquireTokenSilentParameters.Builder()
-                    builder.withScopes(scopes.toList())
-                        .forAccount(currentAccount)
-                        .fromAuthority(authority ?: currentAccount.authority)
+                    builder.withScopes(scopes.toList()).forAccount(currentAccount)
+                        .fromAuthority(resolvedAuthority)
                         .withCallback(msal.silentAuthenticationCallback(result))
                     val acquireTokenParameters = builder.build()
                     msal.iPublicClientApplication.acquireTokenSilentAsync(acquireTokenParameters)
@@ -207,15 +209,20 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
             }
         } else if (msal.iMultipleAccountPca != null) {
             msal.iMultipleAccountPca!!.getAccount(identifier!!)?.let { account ->
-                val authority = if (Patterns.WEB_URL.matcher(account.authority).matches()) {
-                    account.authority
-                } else {
-                    authority
+                val resolvedAuthority: String = when {
+                    // Per-call override (from Dart)
+                    !authority.isNullOrBlank() -> authority
+
+                    // Use account authority only if it looks like a URL
+                    Patterns.WEB_URL.matcher(account.authority).matches() -> account.authority
+
+                    // Fallback: PCA-level authority set during create*Pca
+                    else -> this.authority
                 }
+
                 val builder = AcquireTokenSilentParameters.Builder()
-                builder.withScopes(scopes.toList())
-                    .forAccount(account)
-                    .fromAuthority(authority)
+                builder.withScopes(scopes.toList()).forAccount(account)
+                    .fromAuthority(resolvedAuthority)
                     .withCallback(msal.silentAuthenticationCallback(result))
                 val acquireTokenParameters = builder.build()
                 msal.iPublicClientApplication.acquireTokenSilentAsync(acquireTokenParameters)
@@ -305,9 +312,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
      */
     private fun setPcaInitError(methodName: String, result: MethodChannel.Result) {
         result.error(
-            "PCA_INIT",
-            "PublicClientApplication should be initialized to call $methodName.",
-            null
+            "PCA_INIT", "PublicClientApplication should be initialized to call $methodName.", null
         )
     }
 }
