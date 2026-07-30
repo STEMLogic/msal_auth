@@ -1,1 +1,1 @@
-rootProject.name = 'msal_auth'
+rootProject.name = "msal_auth"
