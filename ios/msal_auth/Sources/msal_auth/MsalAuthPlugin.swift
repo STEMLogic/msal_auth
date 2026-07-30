@@ -4,7 +4,9 @@ import UIKit
 
 /// This is the main entry point for the Flutter plugin.
 /// It manages the method calls from Flutter & sets results accordingly.
-public class MsalAuthPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate {
+// TODO(STEM): Restore `, FlutterSceneLifeCycleDelegate` after Flutter ≥3.38 / 3.41
+// (API unavailable on 3.35.x; HERE SDK currently caps the app).
+public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDelegate */ {
 
     /// Initializes method channel and register method call delegate.
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -16,8 +18,10 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDeleg
         // Register AppDelegate to handle URL callback.
         registrar.addApplicationDelegate(instance)
 
+        // TODO(STEM): Restore after Flutter ≥3.38 / 3.41 (`addSceneDelegate` needs
+        // FlutterSceneLifeCycleDelegate, unavailable on 3.35.x).
         // Register SceneDelegate to handle URL callback.
-        registrar.addSceneDelegate(instance)
+        // registrar.addSceneDelegate(instance)
     }
 
     /// Handles the URL callback from the browser / third party app.
@@ -33,18 +37,19 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDeleg
         )
     }
 
+    // TODO(STEM): Restore after Flutter ≥3.38 / 3.41 (FlutterSceneLifeCycleDelegate).
     /// Handles the URL callback from the browser / third party app.
     /// Used when iOS app uses `SceneDelegate`.
-    public func scene(
-    _ scene: UIScene,
-    openURLContexts URLContexts: Set<UIOpenURLContext>
-    ) -> Bool {
-        guard let url = URLContexts.first?.url else { return false }
-        return MSALPublicClientApplication.handleMSALResponse(
-            url,
-            sourceApplication: URLContexts.first?.options.sourceApplication
-        )
-    }
+    // public func scene(
+    // _ scene: UIScene,
+    // openURLContexts URLContexts: Set<UIOpenURLContext>
+    // ) -> Bool {
+    //     guard let url = URLContexts.first?.url else { return false }
+    //     return MSALPublicClientApplication.handleMSALResponse(
+    //         url,
+    //         sourceApplication: URLContexts.first?.options.sourceApplication
+    //     )
+    // }
 
     /// Handles method calls received from Dart.
     public func handle(
