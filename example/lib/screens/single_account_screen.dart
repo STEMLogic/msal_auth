@@ -76,28 +76,37 @@ class _SingleAccountScreenState extends State<SingleAccountScreen> {
     }
   }
 
+  Future<void> _isSharedDevice() async {
+    await MsalAuthService.instance.isSharedDevice();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Single Account'),
+        title: const Text('Single Account'),
         actions: [
           IconButton(
             onPressed: _signOut,
-            icon: Icon(Icons.logout),
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
       body: _account == null
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               children: [
                 AccountCard(account: _account!),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _acquireTokenSilent,
-                  child: Text('Acquire Token Silently'),
+                  child: const Text('Acquire Token Silently'),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: _isSharedDevice,
+                  child: const Text('Shared Device Mode'),
                 ),
               ],
             ),
