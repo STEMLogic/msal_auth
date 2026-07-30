@@ -67,4 +67,5 @@ android {
 dependencies {
     implementation("com.microsoft.identity.client:msal:${msalVersion}")
     implementation("com.google.code.gson:gson:2.14.0")
+    implementation("org.apache.httpcomponents.core5:httpcore5:5.4.3")
 }
