@@ -10,7 +10,7 @@ The example app uses environment variables for values such as client ID, redirec
 
 ### Create Environment File
 
-Create a .env/development.env file in the [example] folder with your Azure app credentials:
+Create a `.env` file in the [example] folder with your Azure app credentials:
 
 ```ini
 AAD_CLIENT_ID=your-apps-client-id
@@ -60,7 +60,7 @@ From example's [`android`] folder, run the below command:
   keytool -exportcert -alias upload -keystore app/upload-keystore.jks | openssl sha1 -binary | openssl base64
   ```
 
-Register the signature hash above in the Android platform configurations in [Azure Portal] and obtain the Redirect URI. Add that value in relevant keys in `.env/development.env`:
+Register the signature hash above in the Android platform configurations in [Azure Portal] and obtain the Redirect URI. Add that value in relevant keys in `.env`:
 
 ```ini
 AAD_DEBUG_ANDROID_REDIRECT_URI=debug-redirect-uri
@@ -135,19 +135,19 @@ Run configurations are created for IDEs to execute the build workflow. From the 
 #### Run the app in debug mode
 
 ```sh
-flutter run --dart-define-from-file=.env/development.env
+flutter run --dart-define-from-file=.env
 ```
 
 #### Run the app in release mode
 
 ```sh
-flutter run --release --dart-define-from-file=.env/development.env
+flutter run --release --dart-define-from-file=.env
 ```
 
 #### Build APK
 
 ```sh
-flutter build apk --dart-define-from-file=.env/development.env
+flutter build apk --dart-define-from-file=.env
 ```
 
 

@@ -13,10 +13,10 @@ A new Flutter plugin for Azure AD authentication.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Aubergine Solutions Pvt. Ltd.' => 'flutterdev@aubergine.co' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  s.source_files = 'msal_auth/Sources/msal_auth/**/*'
   s.dependency 'Flutter'
   s.platform = :ios, '14.0'
-  s.dependency 'MSAL', '~> 2.2.0'
+  s.dependency 'MSAL', '~> 2.11.0'
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }

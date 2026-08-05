@@ -51,7 +51,9 @@ class PublicClientApplication {
     try {
       final result =
           await kMethodChannel.invokeMethod('acquireToken', arguments);
-      return AuthenticationResult.fromJson(result.cast<String, dynamic>());
+      return AuthenticationResult.fromJson(
+        (result as Map).cast<String, dynamic>(),
+      );
     } on PlatformException catch (e) {
       throw e.convertToMsalException();
     }
@@ -91,7 +93,21 @@ class PublicClientApplication {
     try {
       final result =
           await kMethodChannel.invokeMethod('acquireTokenSilent', arguments);
-      return AuthenticationResult.fromJson(result.cast<String, dynamic>());
+      return AuthenticationResult.fromJson(
+        (result as Map).cast<String, dynamic>(),
+      );
+    } on PlatformException catch (e) {
+      throw e.convertToMsalException();
+    }
+  }
+
+  /// Returns whether the application is being run on a device that is marked as
+  /// a shared by administrator.
+  /// Only `SingleAccountPublicClientApplications` may be used on shared devices.
+  Future<bool> isSharedDevice() async {
+    try {
+      final result = await kMethodChannel.invokeMethod<bool>('isSharedDevice');
+      return result ?? false;
     } on PlatformException catch (e) {
       throw e.convertToMsalException();
     }
