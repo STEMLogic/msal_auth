@@ -45,10 +45,9 @@ final class Utils {
         'clientId': clientId,
         'authority': appleConfig!.authority,
         'authorityType': appleConfig.authorityType.name,
+        'redirectUri': appleConfig.redirectUri,
+        'broker': appleConfig.broker.name,
       });
-      if (Platform.isIOS) {
-        arguments.addAll({'broker': appleConfig.broker.name});
-      }
     }
     return arguments;
   }

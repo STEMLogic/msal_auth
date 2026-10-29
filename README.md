@@ -14,7 +14,7 @@ Microsoft Authentication 🔐 Library for Flutter.
 
 | iOS | macOS  |
 | --- | ------ |
-| 14+ | 10.15+ |
+| 16+ | 11+    |
 
 ### Swift Package Manager (SPM)
 
@@ -22,7 +22,7 @@ Microsoft Authentication 🔐 Library for Flutter.
 | --- | ----- |
 | 16+ | 11+   |
 
-> **Note:** The `iOS` and `macOS` minimum version differences between `CocoaPods` and `SPM` are requirements of the [MSAL native Swift library], not this Flutter plugin.
+> **Note** The minimum `iOS` and `macOS` versions may differ between CocoaPods and Swift Package Manager (SPM), as these requirements are determined by the [MSAL native Swift library] and are not requirements of this Flutter plugin.
 
 ## Features 🚀
 
@@ -320,8 +320,16 @@ final msalAuth = await SingleAccountPca.create(
     authority: '<Optional, but must be provided for b2c>',
     // Change authority type to 'b2c' for business to customer flow.
     authorityType: AuthorityType.aad,
-    // Change broker if you need. Applicable only for iOS platform.
+    // Change broker if you need. Applicable to both iOS and macOS.
+    // Setting it to 'Broker.webView' / 'Broker.safariBrowser' disables the
+    // Microsoft SSO extension and uses the web view instead — useful on
+    // managed Macs where the broker cannot resolve the app's Team ID.
     broker: Broker.msAuthenticator,
+    // Optional. Explicit redirect URI (e.g. 'msauth.<team-id>.<bundle-id>://auth').
+    // When set, MSAL uses it directly instead of deriving the default redirect
+    // and resolving the Apple Team ID via keychain — which fails on some managed
+    // devices with "teamId is missing". Omit to keep the default behavior.
+    redirectUri: '<Optional Apple Redirect URI>',
   ),
 );
 ```

@@ -4,9 +4,7 @@ import UIKit
 
 /// This is the main entry point for the Flutter plugin.
 /// It manages the method calls from Flutter & sets results accordingly.
-// TODO(STEM): Restore `, FlutterSceneLifeCycleDelegate` after Flutter ≥3.38 / 3.41
-// (API unavailable on 3.35.x; HERE SDK currently caps the app).
-public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDelegate */ {
+public class MsalAuthPlugin: NSObject, FlutterPlugin, FlutterSceneLifeCycleDelegate {
 
     /// Initializes method channel and register method call delegate.
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -18,10 +16,8 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
         // Register AppDelegate to handle URL callback.
         registrar.addApplicationDelegate(instance)
 
-        // TODO(STEM): Restore after Flutter ≥3.38 / 3.41 (`addSceneDelegate` needs
-        // FlutterSceneLifeCycleDelegate, unavailable on 3.35.x).
         // Register SceneDelegate to handle URL callback.
-        // registrar.addSceneDelegate(instance)
+        registrar.addSceneDelegate(instance)
     }
 
     /// Handles the URL callback from the browser / third party app.
@@ -37,19 +33,18 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
         )
     }
 
-    // TODO(STEM): Restore after Flutter ≥3.38 / 3.41 (FlutterSceneLifeCycleDelegate).
     /// Handles the URL callback from the browser / third party app.
     /// Used when iOS app uses `SceneDelegate`.
-    // public func scene(
-    // _ scene: UIScene,
-    // openURLContexts URLContexts: Set<UIOpenURLContext>
-    // ) -> Bool {
-    //     guard let url = URLContexts.first?.url else { return false }
-    //     return MSALPublicClientApplication.handleMSALResponse(
-    //         url,
-    //         sourceApplication: URLContexts.first?.options.sourceApplication
-    //     )
-    // }
+    public func scene(
+    _ scene: UIScene,
+    openURLContexts URLContexts: Set<UIOpenURLContext>
+    ) -> Bool {
+        guard let url = URLContexts.first?.url else { return false }
+        return MSALPublicClientApplication.handleMSALResponse(
+            url,
+            sourceApplication: URLContexts.first?.options.sourceApplication
+        )
+    }
 
     /// Handles method calls received from Dart.
     public func handle(
@@ -80,11 +75,13 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
             MsalAuth.broker = broker
             MsalAuth.authorityType = authorityType
             let authority = dict["authority"] as? String
+            let redirectUri = dict["redirectUri"] as? String
 
             createPublicClientApplication(
                 pcaType: pcaType,
                 clientId: clientId, authority: authority,
                 authorityType: authorityType,
+                redirectUri: redirectUri,
                 result: result)
         case "acquireToken":
             guard let dict = call.arguments as? NSDictionary,
@@ -107,7 +104,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
 
             let loginHint = dict["loginHint"] as? String
             let authority = dict["authority"] as? String
-
+            
             let customWebViewConfig = dict["customWebViewConfig"] as? [String: Any]
 
             acquireToken(
@@ -161,11 +158,13 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
     ///   - clientId: Client ID from Azure Portal.
     ///   - authority: Authority URL.
     ///   - authorityType: Authority type.
+    ///   - redirectUri: Redirect URI. When nil, MSAL derives the default.
     ///   - result: Result of the method call.
     private func createPublicClientApplication(
         pcaType: PublicClientApplicationType,
         clientId: String, authority: String?,
         authorityType: AuthorityType,
+        redirectUri: String?,
         result: @escaping FlutterResult
     ) {
         // Sets broker availability. this is required to avoid error on PCA creation
@@ -176,7 +175,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
         default:
             MSALGlobalConfig.brokerAvailability = .auto
         }
-
+        
         var pcaConfig: MSALPublicClientApplicationConfig!
 
         if authority != nil {
@@ -194,20 +193,21 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
                 case .b2c:
                     let b2cAuthority = try MSALB2CAuthority(url: authorityUrl)
                     pcaConfig = MSALPublicClientApplicationConfig(
-                        clientId: clientId, redirectUri: nil,
+                        clientId: clientId, redirectUri: redirectUri,
                         authority: b2cAuthority)
                     pcaConfig.knownAuthorities = [b2cAuthority]
                 default:
                     let defaultAuthority = try MSALAuthority(url: authorityUrl)
                     pcaConfig = MSALPublicClientApplicationConfig(
-                        clientId: clientId, redirectUri: nil,
+                        clientId: clientId, redirectUri: redirectUri,
                         authority: defaultAuthority)
                 }
             } catch let error as NSError {
                 setMsalError(error: error, result: result)
             }
         } else {
-            pcaConfig = MSALPublicClientApplicationConfig(clientId: clientId)
+            pcaConfig = MSALPublicClientApplicationConfig(
+                clientId: clientId, redirectUri: redirectUri, authority: nil)
         }
 
         if let application = try? MSALPublicClientApplication(
@@ -260,12 +260,12 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
             switch MsalAuth.broker {
             case "webView":
                 webViewParameters.webviewType = .wkWebView
-
+                
                 if let customWebViewConfig {
                     let customWebviewController = CustomWebviewController(config: customWebViewConfig)
                     customWebviewController.modalPresentationStyle = .fullScreen
                     viewController.present(customWebviewController, animated: true, completion: nil)
-
+                    
                     webViewParameters.customWebview = customWebviewController.getWebView()
                 }
             case "safariBrowser":
@@ -280,7 +280,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
 
         tokenParams.promptType = promptType
         tokenParams.loginHint = loginHint
-
+        
         if let authority = authority {
             do {
                 let msalAuthority = try getMsalAuthority(authority: authority)
@@ -290,7 +290,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
                 return
             }
         }
-
+        
         pca.acquireToken(
             with: tokenParams,
             completionBlock: { (msalresult, error) in
@@ -337,7 +337,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
             setNoCurrentAccountError(result: result)
             return
         }
-
+        
         executeSilentRequest(pca: pca, account: account, scopes: scopes, authority: authority, result: result)
     }
 
@@ -444,7 +444,7 @@ public class MsalAuthPlugin: NSObject, FlutterPlugin /*, FlutterSceneLifeCycleDe
     }
 
     /// Removes account from public client application. used with multiple account mode.
-    /// - Parameters:
+    /// - Parameters: 
     ///   - identifier: Account identifier.
     ///   - result: Result of the method call.
     private func removeAccount(
@@ -490,7 +490,7 @@ extension MsalAuthPlugin {
             return try MSALAuthority(url: URL(string: authority)!)
         }
     }
-
+    
     /// Performs a silent token request with the given account.
     /// - Parameters:
     ///   - pca: Public client application.
@@ -525,7 +525,7 @@ extension MsalAuthPlugin {
             result(self.getAuthResult(msalResult))
         }
     }
-
+    
     /// Returns auth result dictionary. used to set result to Dart.
     /// - Parameter authResult: Auth result.
     /// - Returns: Auth result dictionary.
@@ -616,7 +616,7 @@ extension MsalAuthPlugin {
         {
             errorMessage = error.userInfo[MSALErrorDescriptionKey]
             errorDetails["correlationId"] = error.userInfo[MSALCorrelationIDKey]
-
+            
             switch errorCode {
             case .userCanceled:
                 flutterErrorCode = "USER_CANCEL"
