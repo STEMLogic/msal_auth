@@ -18,7 +18,7 @@ import java.io.File
  */
 class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHandler {
     private lateinit var channel: MethodChannel
-    private lateinit var authority: String
+    private var authority: String? = null
 
     /**
      * Initializes the method channel & sets the handler.
@@ -44,7 +44,7 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                 val configFile = File(msal.context.cacheDir, "msal_config.json").apply {
                     writeText(Gson().toJson(config))
                 }
-                authority = call.argument<String>("authority")!!
+                authority = call.argument<String>("authority")
                 if (call.method == "createSingleAccountPca") {
                     createSingleAccountPca(configFile, result)
                 } else {
@@ -195,8 +195,8 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                         // Account authority
                         currentAccount.authority.isNotBlank() -> currentAccount.authority
 
-                        // Fallback: PCA-level authority set during create*Pca
-                        else -> this.authority
+                        // Fallback: PCA-level authority set during create*Pca, if any
+                        else -> this.authority ?: currentAccount.authority
                     }
 
                     val builder = AcquireTokenSilentParameters.Builder()
@@ -218,8 +218,8 @@ class MsalAuthHandler(private val msal: MsalAuth) : MethodChannel.MethodCallHand
                     // Use account authority only if it looks like a URL
                     Patterns.WEB_URL.matcher(account.authority).matches() -> account.authority
 
-                    // Fallback: PCA-level authority set during create*Pca
-                    else -> this.authority
+                    // Fallback: PCA-level authority set during create*Pca, if any
+                    else -> this.authority ?: account.authority
                 }
 
                 val builder = AcquireTokenSilentParameters.Builder()
