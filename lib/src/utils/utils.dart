@@ -27,28 +27,26 @@ final class Utils {
           'redirect_uri': androidConfig.redirectUri,
         });
 
-      if (androidConfig.tenantId != null) {
-        config['authorities'][0]['audience']['tenant_id'] =
-            androidConfig.tenantId;
-      }
+      final tenantId = androidConfig.tenantId;
+      arguments.addAll({'config': config});
 
-      arguments.addAll(
-        {
-          'config': config,
-          'authority':
-              'https://login.microsoftonline.com/${androidConfig.tenantId}'
-        },
-      );
+      if (tenantId != null && tenantId.isNotEmpty) {
+        config['authorities'][0]['audience']['tenant_id'] = tenantId;
+
+        // Fallback authority for silent auth when the account's is unusable.
+        arguments.addAll({
+          'authority': 'https://login.microsoftonline.com/$tenantId',
+        });
+      }
     } else if (Platform.isIOS || Platform.isMacOS) {
       assert(appleConfig != null, 'Apple config can not be null');
       arguments.addAll({
         'clientId': clientId,
         'authority': appleConfig!.authority,
         'authorityType': appleConfig.authorityType.name,
+        'redirectUri': appleConfig.redirectUri,
+        'broker': appleConfig.broker.name,
       });
-      if (Platform.isIOS) {
-        arguments.addAll({'broker': appleConfig.broker.name});
-      }
     }
     return arguments;
   }
